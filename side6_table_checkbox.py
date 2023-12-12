@@ -1,4 +1,5 @@
 import threading
+from typing import Iterable, Optional, Union
 
 from PySide6.QtCore import QRect, Qt, Signal
 from PySide6.QtWidgets import (
@@ -13,6 +14,8 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QWidget,
 )
+
+__version__ = "0.0.1a0"
 
 
 class CheckBoxHeader(QHeaderView):
@@ -74,26 +77,27 @@ class CheckBoxHeader(QHeaderView):
 
 
 class QTableWidgetWithCheckBox(QTableWidget):
-    def __init__(self, rows, columns):
-        super().__init__(rows, columns + 1)
-        self.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+    def __init__(self, rows: int = 0, columns: int = 0, parent: Optional[QWidget] = None):
+        """QTableWidget with a checkbox column. The checkbox column is always the first column."""
+        super().__init__(rows, columns + 1, parent)
+        self.super = super()
+
+        self.super.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.header = CheckBoxHeader()
-        self.setHorizontalHeader(self.header)
+        self.super.setHorizontalHeader(self.header)
         self.header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.super.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.header.select_all_clicked.connect(self.selectAll)
 
         self.lock = threading.RLock()
-        self.id_counter = 0
 
-    def addRow(self, items, state=False):
+    def addRow(self, items: Iterable, state: bool = False) -> None:
         with self.lock:
-            row = super().rowCount()
-            super().insertRow(row)
+            row = self.super.rowCount()
+            self.super.insertRow(row)
 
             checkbox = QCheckBox()
             checkbox.stateChanged.connect(self.onCheckboxStateChanged)
-            checkbox.setProperty("id", self.id_counter)
             if state:
                 checkbox.setCheckState(Qt.CheckState.Checked)
             else:
@@ -105,41 +109,38 @@ class QTableWidgetWithCheckBox(QTableWidget):
             layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.setContentsMargins(0, 0, 0, 0)
             widget.setLayout(layout)
-            widget.setProperty("id", self.id_counter)
-            self.id_counter += 1
 
-            super().setCellWidget(row, 0, widget)
+            self.super.setCellWidget(row, 0, widget)
 
             for i, item in enumerate(items):
-                super().setItem(row, i + 1, QTableWidgetItem(str(item)))
+                self.super.setItem(row, i + 1, QTableWidgetItem(str(item)))
 
-    def getCheckState(self, row):
+    def getCheckState(self, row: int) -> Union[bool, None]:
         with self.lock:
-            checkbox = super().cellWidget(row, 0)
-            if checkbox is not None:
-                return checkbox.isChecked()
-            return None
+            widget = self.super.cellWidget(row, 0)
+            if widget is not None:
+                checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
+                if checkbox is not None:
+                    return checkbox.isChecked()
 
-    def selectAll(self, isOn):
+    def selectAll(self, isOn: bool) -> None:
         with self.lock:
-            for row in range(super().rowCount()):
-                widget = super().cellWidget(row, 0)
+            for row in range(self.super.rowCount()):
+                widget = self.super.cellWidget(row, 0)
                 if widget is not None:
-                    checkbox = widget.layout().itemAt(0).widget()
+                    checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
                     if checkbox is not None:
                         checkbox.setChecked(isOn)
 
-    def onCheckboxStateChanged(self, state):
+    def onCheckboxStateChanged(self, state: int) -> None:
         with self.lock:
-            table = super()
-            checkbox = table.sender()
-            id = checkbox.property("id")
-            selected_rows = table.selectionModel().selectedRows()
-            if any(table.cellWidget(selected_row.row(), 0).property("id") == id for selected_row in selected_rows):
+            checkbox = self.super.sender()
+            selected_rows = self.super.selectionModel().selectedRows()
+            if any(checkbox.parent() == self.super.cellWidget(selected_row.row(), 0) for selected_row in selected_rows):
                 for selected_row in selected_rows:
-                    widget = table.cellWidget(selected_row.row(), 0)
+                    widget = self.super.cellWidget(selected_row.row(), 0)
                     if widget is not None:
-                        checkbox = widget.layout().itemAt(0).widget()
+                        checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
                         if checkbox is not None:
                             checkbox.setChecked(state == Qt.CheckState.Checked.value)
 
@@ -148,28 +149,32 @@ class QTableWidgetWithCheckBox(QTableWidget):
             else:
                 self.checkHeader()
 
-    def checkHeader(self):
+    def checkHeader(self) -> None:
         with self.lock:
-            for row in range(super().rowCount()):
-                widget = super().cellWidget(row, 0)
+            for row in range(self.super.rowCount()):
+                widget = self.super.cellWidget(row, 0)
                 if widget is not None:
-                    checkbox = widget.layout().itemAt(0).widget()
+                    checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
                     if checkbox is not None and checkbox.checkState() == Qt.CheckState.Unchecked:
                         return
             self.header.setOn(True)
 
-    def item(self, row, column):
-        return super().item(row, column + 1)
+    def item(self, row: int, column: int) -> QTableWidgetItem:
+        return self.super.item(row, column + 1)
 
-    def setItem(self, row, column, item):
-        super().setItem(row, column + 1, item)
+    def setItem(self, row: int, column: int, item: QTableWidgetItem) -> None:
+        self.super.setItem(row, column + 1, item)
 
-    def setHorizontalHeaderLabels(self, labels):
-        labels.insert(0, "")
-        super().setHorizontalHeaderLabels(labels)
+    def setHorizontalHeaderLabels(self, labels: Iterable[str]) -> None:
+        with self.lock:
+            labels = [""] + list(labels)
+            super().setHorizontalHeaderLabels(labels)
 
-    def columnCount(self):
+    def columnCount(self) -> int:
         return super().columnCount() - 1
+
+    def setSelectionBehavior(self, *_) -> None:
+        pass
 
 
 if __name__ == "__main__":
