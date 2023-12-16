@@ -1,8 +1,10 @@
 import threading
+import warnings
 from typing import Iterable, Optional, Union
 
-from PySide6.QtCore import QRect, Qt, Signal
+from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPersistentModelIndex, QPoint, QRect, Qt, Signal
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QCheckBox,
     QHBoxLayout,
@@ -12,13 +14,18 @@ from PySide6.QtWidgets import (
     QStyleOptionButton,
     QTableWidget,
     QTableWidgetItem,
+    QTableWidgetSelectionRange,
     QWidget,
 )
 
 __version__ = "0.0.1a0"
 
 
-class CheckBoxHeader(QHeaderView):
+class NotInplementedWarning(Warning):
+    pass
+
+
+class _CheckBoxHeader(QHeaderView):
     select_all_clicked = Signal(bool)
 
     def __init__(self, parent=None):
@@ -76,6 +83,11 @@ class CheckBoxHeader(QHeaderView):
             self.updateSection(0)
 
 
+class _QCheckBoxWithoutFocus(QCheckBox):
+    def focusInEvent(self, event):
+        self.parent().parent().setFocus(Qt.FocusReason.OtherFocusReason)
+
+
 class QTableWidgetWithCheckBox(QTableWidget):
     def __init__(self, rows: int = 0, columns: int = 0, parent: Optional[QWidget] = None):
         """QTableWidget with a checkbox column. The checkbox column is always the first column."""
@@ -83,20 +95,267 @@ class QTableWidgetWithCheckBox(QTableWidget):
         self.super = super()
 
         self.super.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.header = CheckBoxHeader()
+        self.header = _CheckBoxHeader()
         self.super.setHorizontalHeader(self.header)
         self.header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.super.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.header.select_all_clicked.connect(self.selectAll)
+        self.header.select_all_clicked.connect(self.checkAll)
 
         self.lock = threading.RLock()
 
-    def addRow(self, items: Iterable, state: bool = False) -> None:
+    # Reimplement QTableWidget functions
+
+    def cellWidget(self, row: int, column: int) -> QWidget:
+        return self.super.cellWidget(row, column + 1)
+
+    def clear(self) -> None:
         with self.lock:
-            row = self.super.rowCount()
+            for _ in range(1, self.super.columnCount()):
+                self.super.removeColumn(1)
+            for _ in range(self.super.rowCount()):
+                self.super.removeRow(0)
+
+    def clearContents(self) -> None:
+        with self.lock:
+            for row in range(self.super.rowCount()):
+                for column in range(1, self.super.columnCount()):
+                    self.super.setItem(row, column, None)
+
+    def column(self, column: QTableWidgetItem) -> int:
+        return self.super.column(column) - 1
+
+    def columnCount(self) -> int:
+        return self.super.columnCount() - 1
+
+    def currentColumn(self) -> int:
+        return self.super.currentColumn() - 1
+
+    def horizontalHeaderItem(self, column: int) -> QTableWidgetItem:
+        return self.super.horizontalHeaderItem(column + 1)
+
+    def indexFromItem(self, item: QTableWidgetItem) -> QModelIndex:
+        warnings.warn("indexFromItem() is not overridden", NotInplementedWarning)
+        return self.super.indexFromItem(item)
+
+    def insertColumn(self, column: int) -> None:
+        self.super.insertColumn(column + 1)
+
+    def item(self, row: int, column: int) -> QTableWidgetItem:
+        return self.super.item(row, column + 1)
+
+    def itemAt(  # type: ignore[override]
+        self, _arg0: Union[QPoint, int], _arg1: Optional[int] = None
+    ) -> Union[QTableWidgetItem, None]:
+        """
+        ```Python
+        @overload
+        def itemAt(self, pos: QPoint) -> Union[QTableWidgetItem, None]:
+            ...
+
+        @overload
+        def itemAt(self, x: int, y: int) -> Union[QTableWidgetItem, None]:
+            ...
+        ```
+        """
+        if _arg1 is None:
+            if isinstance(_arg0, QPoint):
+                x, y = _arg0.x(), _arg0.y()
+            else:
+                raise TypeError("itemAt() requires a QPoint or two integers")
+        else:
+            if isinstance(_arg0, int) and isinstance(_arg1, int):
+                x, y = _arg0, _arg1
+            else:
+                raise TypeError("itemAt() requires a QPoint or two integers")
+        item = self.super.itemAt(x, y)
+        if item is not None and item.column() == 0:
+            return None
+        return item
+
+    def itemFromIndex(self, index: Union[QModelIndex, QPersistentModelIndex]) -> QTableWidgetItem:
+        warnings.warn("itemFromIndex() is not overridden", NotInplementedWarning)
+        return self.super.itemFromIndex(index)
+
+    def removeCellWidget(self, row: int, column: int) -> None:
+        self.super.removeCellWidget(row, column + 1)
+
+    def removeColumn(self, column: int) -> None:
+        self.super.removeColumn(column + 1)
+
+    def removeRow(self, row: int) -> None:
+        with self.lock:
+            widget = self.super.cellWidget(row, 0)
+            if widget is not None:
+                checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
+                if checkbox is not None:
+                    checkbox.stateChanged.disconnect(self.onCheckboxStateChanged)
+            self.super.removeRow(row)
+
+    def selectedRanges(self) -> list[QTableWidgetSelectionRange]:
+        ret = []
+        for selected_range in self.super.selectedRanges():
+            if selected_range.leftColumn() == 0:
+                ret.append(
+                    QTableWidgetSelectionRange(
+                        selected_range.topRow(), 0, selected_range.bottomRow(), selected_range.rightColumn() - 1
+                    )
+                )
+            else:
+                ret.append(
+                    QTableWidgetSelectionRange(
+                        selected_range.topRow(),
+                        selected_range.leftColumn() - 1,
+                        selected_range.bottomRow(),
+                        selected_range.rightColumn() - 1,
+                    )
+                )
+        return ret
+
+    def setCellWidget(self, row: int, column: int, widget: QWidget) -> None:
+        self.super.setCellWidget(row, column + 1, widget)
+
+    def setColumnCount(self, columns: int) -> None:
+        self.super.setColumnCount(columns + 1)
+
+    def setCurrentCell(
+        self,
+        _arg0: Union[int, QTableWidgetItem],
+        _arg1: Optional[Union[int, QItemSelectionModel.SelectionFlag]] = None,
+        _arg2: Optional[QItemSelectionModel.SelectionFlag] = None,
+    ) -> None:
+        """
+        ```Python
+        @overload
+        def setCurrentCell(self, row: int, column: int) -> None:
+            ...
+
+        @overload
+        def setCurrentCell(self, row: int, column: int, command: QItemSelectionModel.SelectionFlag) -> None:
+            ...
+
+        @overload
+        def setCurrentItem(self, item: QTableWidgetItem) -> None:
+            ...
+
+        @overload
+        def setCurrentItem(self, item: QTableWidgetItem, command: QItemSelectionModel.SelectionFlag) -> None:
+            ...
+        ```
+        """
+        if _arg1 is None:
+            if isinstance(_arg0, QTableWidgetItem):
+                return self.super.setCurrentCell(_arg0)
+        elif _arg2 is None:
+            if isinstance(_arg0, int) and isinstance(_arg1, int):
+                return self.super.setCurrentCell(_arg0, _arg1 + 1)
+            elif isinstance(_arg0, QTableWidgetItem) and isinstance(_arg1, QItemSelectionModel.SelectionFlag):
+                return self.super.setCurrentCell(_arg0, _arg1)
+        elif isinstance(_arg0, int) and isinstance(_arg1, int) and isinstance(_arg2, QItemSelectionModel.SelectionFlag):
+            return self.super.setCurrentCell(_arg0, _arg1 + 1, _arg2)
+        return self.super.setCurrentCell(_arg0, _arg1, _arg2)  # This will raise an error!
+
+    def setHorizontalHeaderItem(self, column: int, item: QTableWidgetItem) -> None:
+        self.super.setHorizontalHeaderItem(column + 1, item)
+
+    def setItem(self, row: int, column: int, item: QTableWidgetItem) -> None:
+        self.super.setItem(row, column + 1, item)
+
+    def setHorizontalHeaderLabels(self, labels: Iterable[str]) -> None:
+        with self.lock:
+            labels = [""] + list(labels)
+            super().setHorizontalHeaderLabels(labels)
+
+    def setRangeSelected(self, range: QTableWidgetSelectionRange, select: bool) -> None:
+        self.super.setRangeSelected(
+            QTableWidgetSelectionRange(
+                range.topRow(), range.leftColumn() + 1, range.bottomRow(), range.rightColumn() + 1
+            ),
+            select,
+        )
+
+    def sortItems(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
+        self.super.sortItems(column + 1, order)
+
+    def takeItem(self, row: int, column: int) -> QTableWidgetItem:
+        return self.super.takeItem(row, column + 1)
+
+    def takeHorizontalHeaderItem(self, column: int) -> QTableWidgetItem:
+        return self.super.takeHorizontalHeaderItem(column + 1)
+
+    def visualColumn(self, column: int) -> int:
+        return self.super.visualColumn(column + 1)
+
+    # Reimplement QTableView functions
+
+    def clearSpans(self) -> None:
+        self.clear()
+
+    def columnAt(self, x: int) -> int:
+        return self.super.columnAt(x + 1)
+
+    def columnSpan(self, row: int, column: int) -> int:
+        return self.super.columnSpan(row, column + 1)
+
+    def columnViewportPosition(self, column: int) -> int:
+        return self.super.columnViewportPosition(column + 1)
+
+    def columnWidth(self, column: int) -> int:
+        return self.super.columnWidth(column + 1)
+
+    def hideColumn(self, column: int) -> None:
+        self.super.hideColumn(column + 1)
+
+    def isColumnHidden(self, column: int) -> bool:
+        return self.super.isColumnHidden(column + 1)
+
+    def isIndexHidden(self, index: Union[QModelIndex, QPersistentModelIndex]) -> bool:
+        warnings.warn("isIndexHidden() is not overridden", NotInplementedWarning)
+        return self.super.isIndexHidden(index)
+
+    def resizeColumnToContents(self, column: int) -> None:
+        self.super.resizeColumnToContents(column + 1)
+
+    def rowSpan(self, row: int, column: int) -> int:
+        return self.super.rowSpan(row, column + 1)
+
+    def scrollTo(
+        self,
+        index: Union[QModelIndex, QPersistentModelIndex],
+        hint: QAbstractItemView.ScrollHint = QAbstractItemView.ScrollHint.EnsureVisible,
+    ) -> None:
+        warnings.warn("scrollTo() is not overridden", NotInplementedWarning)
+        return self.super.scrollTo(index, hint)
+
+    def selectColumn(self, column: int) -> None:
+        self.super.selectColumn(column + 1)
+
+    def selectedIndexes(self) -> list[QModelIndex]:
+        warnings.warn("selectedIndexes() is not overridden", NotInplementedWarning)
+        return self.super.selectedIndexes()
+
+    def setColumnHidden(self, column: int, hide: bool) -> None:
+        self.super.setColumnHidden(column + 1, hide)
+
+    def setColumnWidth(self, column: int, width: int) -> None:
+        self.super.setColumnWidth(column + 1, width)
+
+    def setSpan(self, row: int, column: int, rowSpan: int, columnSpan: int) -> None:
+        self.super.setSpan(row, column + 1, rowSpan, columnSpan)
+
+    def showColumn(self, column: int) -> None:
+        self.super.showColumn(column + 1)
+
+    def sortByColumn(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
+        self.super.sortByColumn(column + 1, order)
+
+    # More functions for QTableWidgetWithCheckBox
+
+    def addRow(self, items: Iterable, state: bool = False, row: Optional[int] = None) -> None:
+        with self.lock:
+            if row is None:
+                row = self.super.rowCount()
             self.super.insertRow(row)
 
-            checkbox = QCheckBox()
+            checkbox = _QCheckBoxWithoutFocus()
             checkbox.stateChanged.connect(self.onCheckboxStateChanged)
             if state:
                 checkbox.setCheckState(Qt.CheckState.Checked)
@@ -122,8 +381,9 @@ class QTableWidgetWithCheckBox(QTableWidget):
                 checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
                 if checkbox is not None:
                     return checkbox.isChecked()
+            return None
 
-    def selectAll(self, isOn: bool) -> None:
+    def checkAll(self, isOn: bool) -> None:
         with self.lock:
             for row in range(self.super.rowCount()):
                 widget = self.super.cellWidget(row, 0)
@@ -134,9 +394,12 @@ class QTableWidgetWithCheckBox(QTableWidget):
 
     def onCheckboxStateChanged(self, state: int) -> None:
         with self.lock:
-            checkbox = self.super.sender()
+            checkbox_changed = self.super.sender()
             selected_rows = self.super.selectionModel().selectedRows()
-            if any(checkbox.parent() == self.super.cellWidget(selected_row.row(), 0) for selected_row in selected_rows):
+            if any(
+                checkbox_changed.parent() == self.super.cellWidget(selected_row.row(), 0)
+                for selected_row in selected_rows
+            ):
                 for selected_row in selected_rows:
                     widget = self.super.cellWidget(selected_row.row(), 0)
                     if widget is not None:
@@ -144,12 +407,12 @@ class QTableWidgetWithCheckBox(QTableWidget):
                         if checkbox is not None:
                             checkbox.setChecked(state == Qt.CheckState.Checked.value)
 
-            if state == Qt.Unchecked:
+            if state == Qt.CheckState.Unchecked:
                 self.header.setOn(False)
             else:
-                self.checkHeader()
+                self._checkHeader()
 
-    def checkHeader(self) -> None:
+    def _checkHeader(self) -> None:
         with self.lock:
             for row in range(self.super.rowCount()):
                 widget = self.super.cellWidget(row, 0)
@@ -158,20 +421,6 @@ class QTableWidgetWithCheckBox(QTableWidget):
                     if checkbox is not None and checkbox.checkState() == Qt.CheckState.Unchecked:
                         return
             self.header.setOn(True)
-
-    def item(self, row: int, column: int) -> QTableWidgetItem:
-        return self.super.item(row, column + 1)
-
-    def setItem(self, row: int, column: int, item: QTableWidgetItem) -> None:
-        self.super.setItem(row, column + 1, item)
-
-    def setHorizontalHeaderLabels(self, labels: Iterable[str]) -> None:
-        with self.lock:
-            labels = [""] + list(labels)
-            super().setHorizontalHeaderLabels(labels)
-
-    def columnCount(self) -> int:
-        return super().columnCount() - 1
 
     def setSelectionBehavior(self, *_) -> None:
         pass
@@ -189,6 +438,7 @@ if __name__ == "__main__":
                 self.table_widget.addRow([f"Item {i}-{j}" for j in range(3)])
 
             self.table_widget.setHorizontalHeaderLabels([f"Column {i}" for i in range(self.table_widget.columnCount())])
+            self.table_widget.setSortingEnabled(True)
 
             self.setCentralWidget(self.table_widget)
 
