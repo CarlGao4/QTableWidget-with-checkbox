@@ -2,8 +2,8 @@ import threading
 import warnings
 from typing import Iterable, Optional, Union
 
-from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPersistentModelIndex, QPoint, QRect, Qt, Signal
-from PySide6.QtWidgets import (
+from PyQt6.QtCore import QItemSelectionModel, QModelIndex, QPersistentModelIndex, QPoint, QRect, Qt, pyqtSignal as Signal
+from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QCheckBox,
