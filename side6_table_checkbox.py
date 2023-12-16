@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QMainWindow,
     QStyle,
+    QStyledItemDelegate,
     QStyleOptionButton,
     QTableWidget,
     QTableWidgetItem,
@@ -21,7 +22,7 @@ from PySide6.QtWidgets import (
 __version__ = "0.0.1a0"
 
 
-class NotInplementedWarning(Warning):
+class NotImplementedWarning(Warning):
     pass
 
 
@@ -134,7 +135,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
         return self.super.horizontalHeaderItem(column + 1)
 
     def indexFromItem(self, item: QTableWidgetItem) -> QModelIndex:
-        warnings.warn("indexFromItem() is not overridden", NotInplementedWarning)
+        warnings.warn("indexFromItem() is not overridden", NotImplementedWarning)
         return self.super.indexFromItem(item)
 
     def insertColumn(self, column: int) -> None:
@@ -173,7 +174,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
         return item
 
     def itemFromIndex(self, index: Union[QModelIndex, QPersistentModelIndex]) -> QTableWidgetItem:
-        warnings.warn("itemFromIndex() is not overridden", NotInplementedWarning)
+        warnings.warn("itemFromIndex() is not overridden", NotImplementedWarning)
         return self.super.itemFromIndex(index)
 
     def removeCellWidget(self, row: int, column: int) -> None:
@@ -309,7 +310,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
         return self.super.isColumnHidden(column + 1)
 
     def isIndexHidden(self, index: Union[QModelIndex, QPersistentModelIndex]) -> bool:
-        warnings.warn("isIndexHidden() is not overridden", NotInplementedWarning)
+        warnings.warn("isIndexHidden() is not overridden", NotImplementedWarning)
         return self.super.isIndexHidden(index)
 
     def resizeColumnToContents(self, column: int) -> None:
@@ -323,14 +324,14 @@ class QTableWidgetWithCheckBox(QTableWidget):
         index: Union[QModelIndex, QPersistentModelIndex],
         hint: QAbstractItemView.ScrollHint = QAbstractItemView.ScrollHint.EnsureVisible,
     ) -> None:
-        warnings.warn("scrollTo() is not overridden", NotInplementedWarning)
+        warnings.warn("scrollTo() is not overridden", NotImplementedWarning)
         return self.super.scrollTo(index, hint)
 
     def selectColumn(self, column: int) -> None:
         self.super.selectColumn(column + 1)
 
     def selectedIndexes(self) -> list[QModelIndex]:
-        warnings.warn("selectedIndexes() is not overridden", NotInplementedWarning)
+        warnings.warn("selectedIndexes() is not overridden", NotImplementedWarning)
         return self.super.selectedIndexes()
 
     def setColumnHidden(self, column: int, hide: bool) -> None:
@@ -345,8 +346,21 @@ class QTableWidgetWithCheckBox(QTableWidget):
     def showColumn(self, column: int) -> None:
         self.super.showColumn(column + 1)
 
+    def sizeHintForColumn(self, column: int) -> int:
+        warnings.warn("sizeHintForColumn() is not overridden", NotImplementedWarning)
+        return self.super.sizeHintForColumn(column)
+
     def sortByColumn(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
         self.super.sortByColumn(column + 1, order)
+
+    # Reimplement QAbstractItemView functions
+        
+    def indexAt(self, point: QPoint) -> QModelIndex:
+        warnings.warn("indexAt() is not overridden", NotImplementedWarning)
+        return self.super.indexAt(point)
+    
+    def setItemDelegateForColumn(self, column: int, delegate: QStyledItemDelegate) -> None:
+        self.super.setItemDelegateForColumn(column + 1, delegate)
 
     # More functions for QTableWidgetWithCheckBox
 
@@ -425,6 +439,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
                 if widget is not None:
                     checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
                     if checkbox is not None and checkbox.checkState() == Qt.CheckState.Unchecked:
+                        self._header.setOn(False)
                         return
             self._header.setOn(True)
 
