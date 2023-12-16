@@ -95,7 +95,6 @@ class QTableWidgetWithCheckBox(QTableWidget):
         super().__init__(rows, columns + 1, parent)
         self.super = super()
 
-        self.super.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._header = _CheckBoxHeader()
         self.super.setHorizontalHeader(self._header)
         self._header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -415,13 +414,13 @@ class QTableWidgetWithCheckBox(QTableWidget):
                 return
             with self._checkboxStateChangedLock:
                 checkbox_changed = self.super.sender()
-                selected_rows = self.super.selectionModel().selectedRows()
+                selected_rows = list(set(i.row() for i in self.super.selectedIndexes()))
                 if any(
-                    checkbox_changed.parent() == self.super.cellWidget(selected_row.row(), 0)
+                    checkbox_changed.parent() == self.super.cellWidget(selected_row, 0)
                     for selected_row in selected_rows
                 ):
                     for selected_row in selected_rows:
-                        widget = self.super.cellWidget(selected_row.row(), 0)
+                        widget = self.super.cellWidget(selected_row, 0)
                         if widget is not None:
                             checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
                             if checkbox is not None:
@@ -441,9 +440,6 @@ class QTableWidgetWithCheckBox(QTableWidget):
                     if checkbox is not None and checkbox.checkState() == Qt.CheckState.Unchecked:
                         return
             self._header.setOn(True)
-
-    def setSelectionBehavior(self, *_) -> None:
-        pass
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
