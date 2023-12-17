@@ -76,6 +76,7 @@ class _CheckBoxHeader(QHeaderView):
             index = self.logicalIndexAt(event.position().toPoint())
             if index == 0:
                 self.updateSection(0)
+                return
         super().mousePressEvent(event)
 
     def setOn(self, isOn):
@@ -263,7 +264,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
     def setHorizontalHeaderLabels(self, labels: Iterable[str]) -> None:
         with self._lock:
             labels = [""] + list(labels)
-            super().setHorizontalHeaderLabels(labels)
+            self.super.setHorizontalHeaderLabels(labels)
 
     def setRangeSelected(self, range: QTableWidgetSelectionRange, select: bool) -> None:
         self.super.setRangeSelected(
