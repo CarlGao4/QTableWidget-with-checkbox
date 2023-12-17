@@ -354,11 +354,11 @@ class QTableWidgetWithCheckBox(QTableWidget):
         self.super.sortByColumn(column + 1, order)
 
     # Reimplement QAbstractItemView functions
-        
+
     def indexAt(self, point: QPoint) -> QModelIndex:
         warnings.warn("indexAt() is not overridden", NotImplementedWarning)
         return self.super.indexAt(point)
-    
+
     def setItemDelegateForColumn(self, column: int, delegate: QStyledItemDelegate) -> None:
         self.super.setItemDelegateForColumn(column + 1, delegate)
 

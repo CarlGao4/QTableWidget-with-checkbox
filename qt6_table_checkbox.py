@@ -2,7 +2,15 @@ import threading
 import warnings
 from typing import Iterable, Optional, Union
 
-from PyQt6.QtCore import QItemSelectionModel, QModelIndex, QPersistentModelIndex, QPoint, QRect, Qt, pyqtSignal as Signal
+from PyQt6.QtCore import (
+    QItemSelectionModel,
+    QModelIndex,
+    QPersistentModelIndex,
+    QPoint,
+    QRect,
+    Qt,
+    pyqtSignal as Signal,
+)
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -354,11 +362,11 @@ class QTableWidgetWithCheckBox(QTableWidget):
         self.super.sortByColumn(column + 1, order)
 
     # Reimplement QAbstractItemView functions
-        
+
     def indexAt(self, point: QPoint) -> QModelIndex:
         warnings.warn("indexAt() is not overridden", NotImplementedWarning)
         return self.super.indexAt(point)
-    
+
     def setItemDelegateForColumn(self, column: int, delegate: QStyledItemDelegate) -> None:
         self.super.setItemDelegateForColumn(column + 1, delegate)
 
