@@ -75,7 +75,7 @@ class _CheckBoxHeader(QHeaderView):
             if index == 0:
                 self.isOn = not self.isOn
                 self.select_all_clicked.emit(self.isOn)
-                self.updateSection(0)
+            self.updateSection(0)
         super().mouseReleaseEvent(event)
 
     def mousePressEvent(self, event):
