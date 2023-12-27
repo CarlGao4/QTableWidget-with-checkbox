@@ -12,6 +12,7 @@ from PyQt6.QtCore import (
     pyqtSignal as Signal,
 )
 from PyQt6.QtWidgets import (
+    QAbstractItemDelegate,
     QAbstractItemView,
     QApplication,
     QCheckBox,
@@ -19,7 +20,6 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QMainWindow,
     QStyle,
-    QStyledItemDelegate,
     QStyleOptionButton,
     QTableWidget,
     QTableWidgetItem,
@@ -130,7 +130,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
                 for column in range(1, self.super.columnCount()):
                     self.super.setItem(row, column, None)
 
-    def column(self, column: QTableWidgetItem) -> int:
+    def column(self, column: Optional[QTableWidgetItem]) -> int:
         return self.super.column(column) - 1
 
     def columnCount(self) -> int:
@@ -142,7 +142,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
     def horizontalHeaderItem(self, column: int) -> QTableWidgetItem:
         return self.super.horizontalHeaderItem(column + 1)
 
-    def indexFromItem(self, item: QTableWidgetItem) -> QModelIndex:
+    def indexFromItem(self, item: Optional[QTableWidgetItem]) -> QModelIndex:
         warnings.warn("indexFromItem() is not overridden", NotImplementedWarning)
         return self.super.indexFromItem(item)
 
@@ -220,7 +220,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
                 )
         return ret
 
-    def setCellWidget(self, row: int, column: int, widget: QWidget) -> None:
+    def setCellWidget(self, row: int, column: int, widget: Optional[QWidget]) -> None:
         self.super.setCellWidget(row, column + 1, widget)
 
     def setColumnCount(self, columns: int) -> None:
@@ -263,13 +263,13 @@ class QTableWidgetWithCheckBox(QTableWidget):
             return self.super.setCurrentCell(_arg0, _arg1 + 1, _arg2)
         return self.super.setCurrentCell(_arg0, _arg1, _arg2)  # This will raise an error!
 
-    def setHorizontalHeaderItem(self, column: int, item: QTableWidgetItem) -> None:
+    def setHorizontalHeaderItem(self, column: int, item: Optional[QTableWidgetItem]) -> None:
         self.super.setHorizontalHeaderItem(column + 1, item)
 
-    def setItem(self, row: int, column: int, item: QTableWidgetItem) -> None:
+    def setItem(self, row: int, column: int, item: Optional[QTableWidgetItem]) -> None:
         self.super.setItem(row, column + 1, item)
 
-    def setHorizontalHeaderLabels(self, labels: Iterable[str]) -> None:
+    def setHorizontalHeaderLabels(self, labels: Iterable[Optional[str]]) -> None:
         with self._lock:
             labels = [""] + list(labels)
             self.super.setHorizontalHeaderLabels(labels)
@@ -367,7 +367,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
         warnings.warn("indexAt() is not overridden", NotImplementedWarning)
         return self.super.indexAt(point)
 
-    def setItemDelegateForColumn(self, column: int, delegate: QStyledItemDelegate) -> None:
+    def setItemDelegateForColumn(self, column: int, delegate: Optional[QAbstractItemDelegate]) -> None:
         self.super.setItemDelegateForColumn(column + 1, delegate)
 
     # More functions for QTableWidgetWithCheckBox

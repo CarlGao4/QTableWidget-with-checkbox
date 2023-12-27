@@ -4,6 +4,7 @@ from typing import Iterable, Optional, Union
 
 from PySide6.QtCore import QItemSelectionModel, QModelIndex, QPersistentModelIndex, QPoint, QRect, Qt, Signal
 from PySide6.QtWidgets import (
+    QAbstractItemDelegate,
     QAbstractItemView,
     QApplication,
     QCheckBox,
@@ -11,7 +12,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QMainWindow,
     QStyle,
-    QStyledItemDelegate,
     QStyleOptionButton,
     QTableWidget,
     QTableWidgetItem,
@@ -359,7 +359,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
         warnings.warn("indexAt() is not overridden", NotImplementedWarning)
         return self.super.indexAt(point)
 
-    def setItemDelegateForColumn(self, column: int, delegate: QStyledItemDelegate) -> None:
+    def setItemDelegateForColumn(self, column: int, delegate: QAbstractItemDelegate) -> None:
         self.super.setItemDelegateForColumn(column + 1, delegate)
 
     # More functions for QTableWidgetWithCheckBox
