@@ -407,6 +407,15 @@ class QTableWidgetWithCheckBox(QTableWidget):
                 if checkbox is not None:
                     return checkbox.isChecked()
             return None
+        
+    def setCheckState(self, row: int, state: bool) -> None:
+        with self._lock:
+            widget = self.super.cellWidget(row, 0)
+            if widget is not None:
+                checkbox = widget.layout().itemAt(0).widget()  # type: QCheckBox
+                if checkbox is not None:
+                    checkbox.setChecked(state)
+                    self._checkHeader()
 
     def checkAll(self, isOn: bool) -> None:
         with self._lock:
