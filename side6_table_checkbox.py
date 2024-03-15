@@ -399,7 +399,7 @@ class QTableWidgetWithCheckBox(QTableWidget):
                 if checkbox is not None:
                     return checkbox.isChecked()
             return None
-        
+
     def setCheckState(self, row: int, state: bool) -> None:
         with self._lock:
             widget = self.super.cellWidget(row, 0)
