@@ -57,7 +57,10 @@ class _CheckBoxHeader(QHeaderView):
             dy = (rect.height() - checkboxHeight) // 2
 
             option.rect = QRect(rect.x() + dx, rect.y() + dy, checkboxWidth, checkboxHeight)
-            option.state = QStyle.StateFlag.State_Enabled | QStyle.StateFlag.State_Active
+            if self.isEnabled():
+                option.state = QStyle.StateFlag.State_Enabled | QStyle.StateFlag.State_Active
+            else:
+                option.state = QStyle.StateFlag.State_None
             if self.isOn:
                 option.state |= QStyle.StateFlag.State_On
             else:
